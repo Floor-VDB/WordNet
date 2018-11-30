@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>You shall know a word by the company it keeps (Firth, J. R. 1957:11)</title>
+    <script src="libraries/p5.js"></script>
+    <script src="libraries/p5.dom.js"></script>
+    <script src="libraries/p5.sound.js"></script>
+    <script src="word2vec.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300" rel="stylesheet">
+    <script src="sketch.js"></script>
+    <script type="text/javascript" src="vis.js"></script>
+    <link href="vis-network.min.css" rel="stylesheet" type="text/css" />
+
+    <style type="text/css">
+        body{
+            margin:0;
+            padding:0;
+                overflow-y:hidden;
+                overflow-x:hidden;
+        }
+        #mynetwork {
+            width: 100%;
+            height: 100vh;
+            border: 1px solid lightgray;
+            background-color: #111;
+        }
+        
+        .vis-edit {
+            display: none;
+        }
+        .vis-manipulation{
+                        display: none !important;
+
+        }
+        .vis-edit-mode{
+                                    display: none !important;
+
+        }
+        #eventSpan {
+            display: none;
+        }
+        #infomenu{
+            position:absolute;
+            z-index:2;
+            opacity:0.5;
+                        padding:20px;
+
+        }
+        #currentsource{
+            color:#aaa;
+            font-family:"Source Sans Pro";
+        }
+        #infomenu button{
+            color:#aaa;
+            font-family:"Source Sans Pro";
+            background-color:transparent;
+            border:1px solid #444;
+            border-radius:3px;
+            margin-top:5px;
+        }
+        .row {
+            display: none;
+            margin-top: 10px;
+            padding: 20px;
+            outline: 2px solid #ccc;
+            outline-offset: -10px;
+            -moz-outline-radius: 10px;
+            -webkit-outline-radius: 10px;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="infomenu">
+        <div id="currentsource"></div>
+        <br>
+    <button id="children" class="btn btn-primary">children</button><br>
+    <button id="cnn" class="btn btn-primary">cnn</button><br>
+    <button id="religion" class="btn btn-primary">religious</button><br>
+    <button id="lyrics" class="btn btn-primary">lyrics</button><br><br>
+    <button id="clear" onclick="nodes.clear()" class="btn btn-primary">clear</button>
+        </div>
+
+
+    <div id="loadHide">
+        <div id="mynetwork"></div>
+        <pre id="eventSpan"></pre>
+        <div class="row">
+            <p>
+                <input type="text" value="rainbow" id="nearword"></input>
+                <button id="submit" class="btn btn-primary">is similar to ...</button>
+            </p>
+            <p id="results"></p>
+        </div>
+
+        <div class="row">
+            <p>
+                Between
+                <input type="text" value="rainbow" id="between1"></input> and
+                <input type="text" value="kitten" id="between2"></input>
+                <button id="submit2" class="btn btn-primary">is ...</button>
+            </p>
+            <p id="results2"></p>
+        </div>
+
+        <div class="row">
+            <p>
+                <input type="text" value="king" id="isto1"></input> is to
+                <input type="text" value="queen" id="isto2"></input> as
+                <input type="text" value="man" id="isto3"></input>
+                <button id="submit3" class="btn btn-primary">is to ...</button>
+            </p>
+            <p id="results3"></p>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+          //let childrenbutton = select('#children');
+
+        // create an array with nodes
+        function findNearest(word, n = 7) {
+            let nearest = Word2Vec.nearest(word, 7);
+            if (!nearest) {
+                return 'No word vector found';
+            }
+            let output = '';
+            for (let i = 0; i < nearest.length; i++) {
+                output += nearest[i].word + '<br/>';
+            }
+            return output;
+        }
+        var nodes = new vis.DataSet([{
+            id: 'life',
+            label: 'life'
+        }, ]);
+
+        // create an array with edges
+        var edges = new vis.DataSet([
+
+        ]);
+
+        // create a network
+        var container = document.getElementById('mynetwork');
+        var data = {
+            nodes: nodes,
+            edges: edges
+        };
+
+        var options = {
+            nodes: {
+                borderWidth: 1,
+                shape: 'box',
+
+                size: 30,
+                chosen: false,
+                color: {
+                    border: '#333',
+                    background: '#111111'
+                },
+                font: {
+                    color: '#eeeeee',
+                    face: 'Source Sans Pro'
+                },
+            },
+            edges: {
+                color: 'lightgray'
+            },
+            interaction: {
+                hover: true
+            },
+            manipulation: {
+                enabled: true
+            }
+        };
+
+        var network = new vis.Network(container, data, options);
+        
+
+        
+        network.on("click", function(params) {
+            params.event = "[original event]";
+
+
+            document.getElementById('eventSpan').innerHTML = '<h2>Click event:</h2>' + JSON.stringify(params, null, 4);
+            //console.log('click edvent, getNodeAt returns: ' + this.getNodeAt(params.pointer.DOM));
+        });
+        network.on("doubleClick", function(params) {
+            params.event = "[original event]";
+            document.getElementById('eventSpan').innerHTML = '<h2>doubleClick event:</h2>' + JSON.stringify(params, null, 4);
+        });
+
+        network.on("dragStart", function(params) {
+            // There's no point in displaying this event on screen, it gets immediately overwritten
+            params.event = "[original event]";
+            //console.log('dragStart Event:', params);
+            //console.log('dragStart event, getNodeAt returns: ' + this.getNodeAt(params.pointer.DOM));
+        });
+
+        network.on("dragging", function(params) {
+            params.event = "[original event]";
+            document.getElementById('eventSpan').innerHTML = '<h2>dragging event:</h2>' + JSON.stringify(params, null, 4);
+        });
+
+        network.on("dragEnd", function(params) {
+            params.event = "[original event]";
+            document.getElementById('eventSpan').innerHTML = '<h2>dragEnd event:</h2>' + JSON.stringify(params, null, 4);
+            //console.log('dragEnd Event:', params);
+            //console.log('dragEnd event, getNodeAt returns: ' + this.getNodeAt(params.pointer.DOM));
+        });
+
+        network.on("zoom", function(params) {
+            document.getElementById('eventSpan').innerHTML = '<h2>zoom event:</h2>' + JSON.stringify(params, null, 4);
+        });
+
+        network.on("select", function(params) {
+            console.log('select Event:', params);
+
+            let nearWordInput = select('#nearword');
+            let nearButton = select('#submit');
+            let nearResults = select('#results');
+
+            var parentnode = this.getNodeAt(params.pointer.DOM);
+
+            let word = this.getNodeAt(params.pointer.DOM);
+
+            //console.log(word);
+            nearResults.html(findNearest(word, 10));
+            var resultsnonsplit = findNearest(word, 10);
+            var results = resultsnonsplit.split("<br/>");
+            let popped = results.pop();
+            //console.log(results);
+
+            for (var i = 0; i < results.length; i++) {
+                nodes.update({
+                    id: results[i],
+                    label: results[i]
+                });
+
+                if (parentnode != results[i]) {
+                    edges.update({
+                        from: parentnode,
+                        to: results[i]
+                    });
+                }
+            }
+        });
+
+        network.on("selectNode", function(params) {
+            console.log('selectNode Event:', params);
+        });
+        network.on("selectEdge", function(params) {
+            console.log('selectEdge Event:', params);
+        });
+        network.on("deselectNode", function(params) {
+            console.log('deselectNode Event:', params);
+        });
+        network.on("deselectEdge", function(params) {
+            console.log('deselectEdge Event:', params);
+        });
+        network.on("hoverNode", function(params) {
+            console.log('hoverNode Event:', params);
+        });
+        network.on("hoverEdge", function(params) {
+            console.log('hoverEdge Event:', params);
+        });
+        network.on("blurNode", function(params) {
+            console.log('blurNode Event:', params);
+        });
+        network.on("blurEdge", function(params) {
+            console.log('blurEdge Event:', params);
+        });
+
+    </script>
+</body>
+
+</html>
